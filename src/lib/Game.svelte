@@ -1,13 +1,18 @@
 <script lang="ts">
   import { compile, process } from "./assembler";
   import type { State } from "./assembler";
-  import { insert_hydration_dev } from "svelte/internal";
 
   let state: State = {
     pc: 0,
     registers: [0, 0, 0, 0],
     out: [],
   };
+
+  // let solution: State = {
+  //   pc: 0,
+  //   registers: [198, 0, 0, 0],
+  //   out: [],
+  // };
 
   let instructions = [
     "cpy a d",
@@ -41,17 +46,6 @@
     "jnz a -19",
     "jnz 1 -21",
   ];
-
-  /*
-
-  d = a + (633*4)
-  later, a = d/2
-
-  first out:1 -- regs 316, 1, 0, 2532
-  next out:0 -- regs 158, 0, 0, 2532
-  then out:0 -- regs 79, 0, 0, 2532
-
-  */
 
   let compiled = instructions.map((i) => compile(i));
 
@@ -112,6 +106,8 @@
     isAdvancingUntilPC = true;
 
     let start = Date.now();
+
+    // locks up the UI so that it can go "fast"
     while (true) {
       if (!isAdvancingUntilPC) {
         break;
@@ -147,6 +143,7 @@
 
     let start = Date.now();
 
+    // locks up the UI so that it can go "fast"
     while (true) {
       if (!isAdvancingRegister) {
         return;
