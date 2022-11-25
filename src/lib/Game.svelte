@@ -1,6 +1,13 @@
 <script lang="ts">
-  let registers = [0, 0, 0, 0];
-  let pc = 10;
+  import { compile, process } from "./assembler";
+  import type { State } from "./assembler";
+  import { insert_hydration_dev } from "svelte/internal";
+
+  let state: State = {
+    pc: 0,
+    registers: [0, 0, 0, 0],
+    out: [],
+  };
 
   let instructions = [
     "cpy a d",
@@ -9,25 +16,47 @@
     "inc d",
     "dec b",
     "jnz b -2",
-    "cpy a d",
-    "cpy 4 c",
-    "cpy 633 b",
-    "inc d",
+    "dec c",
+    "jnz c -5",
+    "cpy d a",
+    "jnz 0 0",
+    "cpy a b",
+    "cpy 0 a",
+    "cpy 2 c",
+    "jnz b 2",
+    "jnz 1 6",
     "dec b",
-    "jnz b -2",
-    "cpy a d",
-    "cpy 4 c",
-    "cpy 633 b",
-    "inc d",
+    "dec c",
+    "jnz c -4",
+    "inc a",
+    "jnz 1 -7",
+    "cpy 2 b",
+    "jnz c 2",
+    "jnz 1 4",
     "dec b",
-    "jnz b -2",
+    "dec c",
+    "jnz 1 -4",
+    "jnz 0 0",
+    "out b",
+    "jnz a -19",
+    "jnz 1 -21",
   ];
 
+  /*
+
+  d = a + (633*4)
+  later, a = d/2
+
+  first out:1 -- regs 316, 1, 0, 2532
+  next out:0 -- regs 158, 0, 0, 2532
+  then out:0 -- regs 79, 0, 0, 2532
+
+  */
+
+  let compiled = instructions.map((i) => compile(i));
+
   function doStep() {
-    pc = (pc + 1) % instructions.length;
-    if (pc === 1) {
-      registers = [1, 0, 0, 0];
-    }
+    state = process(state, compiled);
   }
 
   function doMultiStep() {
@@ -73,6 +102,37 @@
   let advanceRegisterValue = 1;
 
   let isAdvancingRegister = false;
+  let isAdvancingUntilPC = false;
+  let isAdvancingUntilPCTarget = -1;
+
+  function doAdvanceUntilPC() {
+    if (isAdvancingUntilPC) {
+      return;
+    }
+    isAdvancingUntilPC = true;
+
+    let start = Date.now();
+    while (true) {
+      if (!isAdvancingUntilPC) {
+        break;
+      }
+      let elapsed = Math.floor((Date.now() - start) / 1000);
+      if (elapsed > 1 && elapsed % 2 == 0) {
+        isAdvancingUntilPC = window.confirm(
+          `Still seeking after ${elapsed} seconds. Continue?`
+        );
+        if (!isAdvancingUntilPC) {
+          break;
+        }
+      }
+      doStep();
+      if (state.pc === isAdvancingUntilPCTarget) {
+        break;
+      }
+    }
+
+    isAdvancingUntilPC = false;
+  }
 
   function doAdvanceRegister() {
     if (isAdvancingRegister) {
@@ -84,18 +144,28 @@
       alert("Bad register");
       return;
     }
-    let innerDoAdvanceRegister = () => {
+
+    let start = Date.now();
+
+    while (true) {
       if (!isAdvancingRegister) {
         return;
       }
-      if (registers[regIdx] === advanceRegisterValue) {
+      let elapsed = Math.floor((Date.now() - start) / 1000);
+      if (elapsed > 1 && elapsed % 2 === 0) {
+        isAdvancingRegister = window.confirm(
+          `Still advancing without success after ${elapsed} seconds. Continue?`
+        );
+        if (!isAdvancingRegister) {
+          return;
+        }
+      }
+      if (state.registers[regIdx] === advanceRegisterValue) {
         isAdvancingRegister = false;
       } else {
         doStep();
-        requestAnimationFrame(innerDoAdvanceRegister);
       }
-    };
-    innerDoAdvanceRegister();
+    }
   }
 
   function doStopAdvanceRegister() {
@@ -130,25 +200,33 @@
         on:click={doStopAdvanceRegister}>Stop</button
       >
     </div>
+    <div>
+      Adv PC to <input type="number" bind:value={isAdvancingUntilPCTarget} />.
+      <button on:click={doAdvanceUntilPC}>Go</button>
+    </div>
   </div>
   <div class="registers">
     {#each "abcd".split("") as regName}
       <div class="register header">{regName}</div>
     {/each}
-    {#each registers as reg}
+    {#each state.registers as reg}
       <div class="register value">
-        {reg}
+        <input type="number" bind:value={reg} />
       </div>
     {/each}
+  </div>
+  <div class="out">
+    <strong>Out (length: {state.out.length}):</strong>
+    {state.out.join(",")}
   </div>
 
   <div class="instructions">
     {#each instructions as inst, idx}
-      <div class="details" class:active={pc === idx}>
-        {#if pc == idx}→{/if}
+      <div class="details" class:active={state.pc === idx}>
+        {#if state.pc == idx}→{/if}
       </div>
-      <div class="idx" class:active={pc === idx}>{idx}</div>
-      <div class="inst" class:active={pc === idx}>
+      <div class="idx" class:active={state.pc === idx}>{idx}</div>
+      <div class="inst" class:active={state.pc === idx}>
         {inst}
       </div>
     {/each}

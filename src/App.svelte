@@ -1,15 +1,9 @@
 <script>
-  import svelteLogo from "./assets/svelte.svg";
-  import Counter from "./lib/Counter.svelte";
   import Game from "./lib/Game.svelte";
 </script>
 
 <main>
-  <h1>Vite + Svelte</h1>
-
-  <div class="card">
-    <Counter />
-  </div>
+  <h1>Advent of Code 2016 Day 25</h1>
 
   <div class="card">
     <Game />
